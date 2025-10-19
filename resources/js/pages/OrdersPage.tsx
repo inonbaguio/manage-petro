@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createApiClient, ApiResponse } from '../lib/api';
 import { useTenant } from '../lib/useTenant';
 import { usePermissions } from '../hooks/usePermissions';
+import { debug } from 'node:util';
 
 interface Order {
   id: number;
@@ -68,12 +69,14 @@ export default function OrdersPage() {
   }, []);
 
   const fetchData = async () => {
+
     try {
       const [ordersRes, clientsRes, trucksRes] = await Promise.all([
         api.get<ApiResponse<Order[]>>('/orders'),
         api.get<ApiResponse<Client[]>>('/clients'),
         api.get<ApiResponse<Truck[]>>('/trucks?active_only=1'),
       ]);
+
       setOrders(ordersRes.data.data);
       setClients(clientsRes.data.data);
       setTrucks(trucksRes.data.data);

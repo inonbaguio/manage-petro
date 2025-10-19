@@ -3,7 +3,7 @@
 namespace App\Policies;
 
 use App\Modules\Trucks\Domain\Models\DeliveryTruck;
-use App\Modules\Users\Domain\Models\User;
+use App\Models\User;
 
 class TruckPolicy
 {
