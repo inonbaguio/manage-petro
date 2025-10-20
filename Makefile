@@ -188,7 +188,7 @@ cache-clear: ## Clear all caches
 	@echo '$(GREEN)✓ Caches cleared$(NC)'
 
 # ============================================
-# Testing
+# Testing & Code Quality
 # ============================================
 
 test: ## Run all tests
@@ -196,6 +196,46 @@ test: ## Run all tests
 
 test-coverage: ## Run tests with coverage
 	@docker compose exec php php artisan test --coverage
+
+pint: ## Run Laravel Pint (code style fixer)
+	@echo '$(BLUE)Running Laravel Pint...$(NC)'
+	@docker compose exec php ./vendor/bin/pint
+	@echo '$(GREEN)✓ Code style fixed$(NC)'
+
+pint-test: ## Check code style without fixing
+	@docker compose exec php ./vendor/bin/pint --test
+
+# ============================================
+# Git Hooks
+# ============================================
+
+hooks-install: ## Install Git hooks for automated testing
+	@./.githooks/install.sh
+
+hooks-uninstall: ## Uninstall Git hooks
+	@./.githooks/uninstall.sh
+
+hooks-info: ## Show Git hooks information
+	@echo '$(BLUE)Git Hooks Status:$(NC)'
+	@echo ''
+	@if [ -f .git/hooks/pre-commit ]; then \
+		echo '$(GREEN)✓ pre-commit$(NC)   - Code quality checks'; \
+	else \
+		echo '$(RED)✗ pre-commit$(NC)   - Not installed'; \
+	fi
+	@if [ -f .git/hooks/pre-push ]; then \
+		echo '$(GREEN)✓ pre-push$(NC)     - Run tests before push'; \
+	else \
+		echo '$(RED)✗ pre-push$(NC)     - Not installed'; \
+	fi
+	@if [ -f .git/hooks/commit-msg ]; then \
+		echo '$(GREEN)✓ commit-msg$(NC)   - Validate commit messages'; \
+	else \
+		echo '$(RED)✗ commit-msg$(NC)   - Not installed'; \
+	fi
+	@echo ''
+	@echo '$(YELLOW)To install hooks: make hooks-install$(NC)'
+	@echo '$(YELLOW)Documentation: .githooks/README.md$(NC)'
 
 # ============================================
 # Cleanup

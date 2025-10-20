@@ -1,0 +1,150 @@
+#!/bin/bash
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Get the commit message file
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}  📝 Validating Commit Message...${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+# Skip validation for merge commits
+if grep -qE "^Merge (branch|remote)" "$COMMIT_MSG_FILE"; then
+    echo -e "${GREEN}✓ Merge commit detected, skipping validation${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    exit 0
+fi
+
+# Skip validation for revert commits
+if grep -qE "^Revert " "$COMMIT_MSG_FILE"; then
+    echo -e "${GREEN}✓ Revert commit detected, skipping validation${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    exit 0
+fi
+
+FAILED=0
+
+# ============================================================================
+# Commit Message Format Validation
+# ============================================================================
+# We support two formats:
+# 1. Conventional Commits: type(scope): subject
+# 2. Simple format: capitalized subject line
+# ============================================================================
+
+# Get the first line (subject)
+SUBJECT=$(echo "$COMMIT_MSG" | head -n1)
+
+# Check for minimum length
+if [ ${#SUBJECT} -lt 10 ]; then
+    echo -e "${RED}✗ Commit message too short (minimum 10 characters)${NC}"
+    echo -e "${YELLOW}  Current: '$SUBJECT' (${#SUBJECT} characters)${NC}"
+    FAILED=1
+fi
+
+# Check for maximum length
+if [ ${#SUBJECT} -gt 72 ]; then
+    echo -e "${RED}✗ Commit subject too long (maximum 72 characters)${NC}"
+    echo -e "${YELLOW}  Current: ${#SUBJECT} characters${NC}"
+    echo -e "${YELLOW}  Consider moving details to the commit body${NC}"
+    FAILED=1
+fi
+
+# Check if starts with a capital letter (unless it's a conventional commit)
+if ! echo "$SUBJECT" | grep -qE "^([a-z]+(\([a-z0-9-]+\))?:|[A-Z])"; then
+    echo -e "${RED}✗ Commit message should start with a capital letter${NC}"
+    echo -e "${YELLOW}  Or use conventional commit format: type(scope): subject${NC}"
+    FAILED=1
+fi
+
+# Check for period at the end
+if echo "$SUBJECT" | grep -qE "\.$"; then
+    echo -e "${YELLOW}⚠ Warning: Commit subject shouldn't end with a period${NC}"
+fi
+
+# Validate conventional commit format if used
+if echo "$SUBJECT" | grep -qE "^[a-z]+(\([a-z0-9-]+\))?:"; then
+    # Valid types for conventional commits
+    VALID_TYPES="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?:"
+
+    if ! echo "$SUBJECT" | grep -qE "$VALID_TYPES"; then
+        echo -e "${RED}✗ Invalid conventional commit type${NC}"
+        echo -e "${YELLOW}  Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert${NC}"
+        echo -e "${YELLOW}  Format: type(scope): subject${NC}"
+        echo -e "${YELLOW}  Example: feat(orders): add order cancellation feature${NC}"
+        FAILED=1
+    else
+        echo -e "${GREEN}✓ Valid conventional commit format detected${NC}"
+    fi
+fi
+
+# Check for common issues
+if echo "$SUBJECT" | grep -qiE "^(wip|temp|tmp|fixup|squash)"; then
+    echo -e "${YELLOW}⚠ Warning: Temporary commit message detected${NC}"
+    echo -e "${YELLOW}  Consider using a more descriptive message${NC}"
+fi
+
+# Check for imperative mood (common verbs)
+if echo "$SUBJECT" | grep -qiE "^(added|fixed|changed|updated|removed|deleted)"; then
+    echo -e "${YELLOW}⚠ Warning: Use imperative mood (add, fix, change, update, remove)${NC}"
+    echo -e "${YELLOW}  Not past tense (added, fixed, changed, updated, removed)${NC}"
+fi
+
+# Check for blank line after subject if there's a body
+LINE_COUNT=$(echo "$COMMIT_MSG" | wc -l | xargs)
+if [ $LINE_COUNT -gt 1 ]; then
+    SECOND_LINE=$(echo "$COMMIT_MSG" | sed -n '2p')
+    if [ -n "$SECOND_LINE" ]; then
+        echo -e "${YELLOW}⚠ Warning: Add blank line between subject and body${NC}"
+    fi
+fi
+
+# Display the commit message
+echo ""
+echo -e "${BLUE}Your commit message:${NC}"
+echo -e "${YELLOW}────────────────────────────────────────────────────────────────────${NC}"
+echo "$COMMIT_MSG"
+echo -e "${YELLOW}────────────────────────────────────────────────────────────────────${NC}"
+echo ""
+
+# ============================================================================
+# Summary
+# ============================================================================
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+if [ $FAILED -eq 1 ]; then
+    echo -e "${RED}✗ Commit message validation failed!${NC}"
+    echo ""
+    echo -e "${YELLOW}Commit Message Guidelines:${NC}"
+    echo -e "  • Minimum 10 characters, maximum 72 for subject"
+    echo -e "  • Start with capital letter"
+    echo -e "  • Use imperative mood (add, fix, not added, fixed)"
+    echo -e "  • Don't end with a period"
+    echo ""
+    echo -e "${YELLOW}Conventional Commit Format (recommended):${NC}"
+    echo -e "  type(scope): subject"
+    echo ""
+    echo -e "  ${GREEN}Examples:${NC}"
+    echo -e "    feat(orders): add order cancellation feature"
+    echo -e "    fix(auth): resolve token expiration issue"
+    echo -e "    docs(readme): update installation instructions"
+    echo -e "    refactor(clients): simplify client service logic"
+    echo ""
+    echo -e "${YELLOW}Or use --no-verify to skip this check (not recommended)${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Commit message validation passed!${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+exit 0
